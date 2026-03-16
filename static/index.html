@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bangalore Route Finder</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+<!-- ── SIDEBAR ─────────────────────────────────────────────────── -->
+<aside class="sidebar">
+
+  <header class="sidebar-header">
+    <div class="logo">
+      <span class="logo-icon">🚇</span>
+      <div>
+        <h1>Bangalore Route Finder</h1>
+        <p class="tagline">Metro &amp; BMTC bus routing</p>
+      </div>
+    </div>
+  </header>
+
+  <form id="routeForm" class="form">
+    <div class="input-group">
+      <label for="startInput">
+        <span class="dot dot-start"></span> From
+      </label>
+      <input id="startInput" type="text" placeholder="e.g. Indiranagar" autocomplete="off" />
+    </div>
+
+    <div class="swap-row">
+      <button type="button" id="swapBtn" title="Swap locations">⇅ Swap</button>
+    </div>
+
+    <div class="input-group">
+      <label for="endInput">
+        <span class="dot dot-end"></span> To
+      </label>
+      <input id="endInput" type="text" placeholder="e.g. Electronic City" autocomplete="off" />
+    </div>
+
+    <button type="submit" class="btn-find" id="findBtn">
+      <span id="btnText">Find Best Route</span>
+      <span id="btnSpinner" class="spinner hidden"></span>
+    </button>
+  </form>
+
+  <!-- Suggestions / quick picks -->
+  <div class="quick-picks">
+    <p class="quick-label">Try these routes</p>
+    <div class="chips">
+      <button class="chip" data-from="Whitefield" data-to="Majestic">Whitefield → Majestic</button>
+      <button class="chip" data-from="Indiranagar" data-to="Jayanagar">Indiranagar → Jayanagar</button>
+      <button class="chip" data-from="Yelahanka" data-to="Electronic City">Yelahanka → Electronic City</button>
+      <button class="chip" data-from="Koramangala" data-to="Yeshwanthpur">Koramangala → Yeshwanthpur</button>
+    </div>
+  </div>
+
+  <!-- Error banner -->
+  <div id="errorBanner" class="error-banner hidden"></div>
+
+  <!-- Results -->
+  <div id="results" class="results hidden">
+    <div class="results-summary">
+      <div class="summary-route">
+        <span id="sumFrom" class="sum-loc"></span>
+        <span class="sum-arrow">→</span>
+        <span id="sumTo" class="sum-loc"></span>
+      </div>
+      <div class="summary-time">
+        <span class="time-icon">⏱</span>
+        <span id="sumTime" class="time-value"></span>
+      </div>
+      <div id="modeIcons" class="mode-icons"></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <ol id="stepsList" class="steps-list"></ol>
+  </div>
+
+</aside>
+
+<!-- ── MAP ──────────────────────────────────────────────────────── -->
+<main id="map"></main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
