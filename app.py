@@ -566,8 +566,10 @@ def format_route(total_mins, path_edges, nodes, slat, slon, elat, elon):
 
 
 # ═══════════════════════════════════════════════════════════════════
-# GEOCODING  (OpenStreetMap Nominatim)
+# GEOCODING  (Google Maps Geocoding API)
 # ═══════════════════════════════════════════════════════════════════
+
+GOOGLE_MAPS_API_KEY = "AIzaSyD7_J75gJCIRuTwLpi9qRjlHYkpilbKkdw"
 
 _geo_cache = {}
 
@@ -577,22 +579,23 @@ def geocode(query):
     if key in _geo_cache:
         return _geo_cache[key]
 
-    url    = "https://nominatim.openstreetmap.org/search"
+    url    = "https://maps.googleapis.com/maps/api/geocode/json"
     params = {
-        "q": f"{query}, Bangalore, Karnataka, India",
-        "format": "json",
-        "limit": 1,
-        "viewbox": "77.4,13.2,77.8,12.8",
-        "bounded": 1,
+        "address": f"{query}, Bangalore, Karnataka, India",
+        "key":     GOOGLE_MAPS_API_KEY,
+        "bounds":  "12.75,77.40|13.20,77.82",
     }
-    headers = {"User-Agent": "BangaloreRouteFinderApp/1.0"}
 
     try:
-        resp = requests.get(url, params=params, headers=headers, timeout=8)
+        resp = requests.get(url, params=params, timeout=8)
         data = resp.json()
-        if data:
-            result = {"lat": float(data[0]["lat"]), "lon": float(data[0]["lon"]),
-                      "display_name": data[0]["display_name"]}
+        if data.get("status") == "OK" and data.get("results"):
+            loc    = data["results"][0]["geometry"]["location"]
+            result = {
+                "lat":          loc["lat"],
+                "lon":          loc["lng"],
+                "display_name": data["results"][0]["formatted_address"],
+            }
             _geo_cache[key] = result
             return result
     except Exception:

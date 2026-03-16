@@ -1,57 +1,53 @@
-// ── Leaflet map ───────────────────────────────────────────────────
-const map = L.map("map", { zoomControl: true }).setView([12.9716, 77.5946], 12);
+// ── Google Maps ────────────────────────────────────────────────────
+let map;
+let mapOverlays = [];
 
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  attribution: "© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>",
-  maxZoom: 19,
-}).addTo(map);
+function initMap() {
+  map = new google.maps.Map(document.getElementById("map"), {
+    center: { lat: 12.9716, lng: 77.5946 },
+    zoom: 12,
+    mapTypeControl: false,
+    streetViewControl: false,
+    fullscreenControl: false,
+  });
+  loadMetroStations();
+}
 
 // ── State ─────────────────────────────────────────────────────────
-let mapLayers = [];
-
-function clearMapLayers() {
-  mapLayers.forEach(l => map.removeLayer(l));
-  mapLayers = [];
+function clearMapOverlays() {
+  mapOverlays.forEach(o => o.setMap(null));
+  mapOverlays = [];
 }
 
-// ── Custom markers ────────────────────────────────────────────────
-function makeIcon(color, symbol) {
-  return L.divIcon({
-    className: "",
-    html: `<div style="
-      width:30px;height:30px;
-      background:${color};
-      border:3px solid #fff;
-      border-radius:50%;
-      display:flex;align-items:center;justify-content:center;
-      color:#fff;font-size:14px;
-      box-shadow:0 2px 6px rgba(0,0,0,.3);
-    ">${symbol}</div>`,
-    iconSize:   [30, 30],
-    iconAnchor: [15, 15],
-    popupAnchor:[0, -15],
-  });
+// ── Custom SVG markers ────────────────────────────────────────────
+function makeMarkerIcon(color, symbol) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30">
+    <circle cx="15" cy="15" r="13" fill="${color}" stroke="white" stroke-width="3"/>
+    <text x="15" y="20" text-anchor="middle" font-size="13" font-weight="bold"
+          fill="white" font-family="Arial,sans-serif">${symbol}</text>
+  </svg>`;
+  return {
+    url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
+    scaledSize: new google.maps.Size(30, 30),
+    anchor: new google.maps.Point(15, 15),
+  };
 }
-
-const startIcon = makeIcon("#27AE60", "A");
-const endIcon   = makeIcon("#E53E3E", "B");
-const stationIcon = (color) => makeIcon(color, "●");
 
 // ── DOM refs ──────────────────────────────────────────────────────
-const form       = document.getElementById("routeForm");
-const startInput = document.getElementById("startInput");
-const endInput   = document.getElementById("endInput");
-const findBtn    = document.getElementById("findBtn");
-const btnText    = document.getElementById("btnText");
-const btnSpinner = document.getElementById("btnSpinner");
-const results    = document.getElementById("results");
-const errorBanner= document.getElementById("errorBanner");
-const stepsList  = document.getElementById("stepsList");
-const sumFrom    = document.getElementById("sumFrom");
-const sumTo      = document.getElementById("sumTo");
-const sumTime    = document.getElementById("sumTime");
-const modeIcons  = document.getElementById("modeIcons");
-const swapBtn    = document.getElementById("swapBtn");
+const form        = document.getElementById("routeForm");
+const startInput  = document.getElementById("startInput");
+const endInput    = document.getElementById("endInput");
+const findBtn     = document.getElementById("findBtn");
+const btnText     = document.getElementById("btnText");
+const btnSpinner  = document.getElementById("btnSpinner");
+const results     = document.getElementById("results");
+const errorBanner = document.getElementById("errorBanner");
+const stepsList   = document.getElementById("stepsList");
+const sumFrom     = document.getElementById("sumFrom");
+const sumTo       = document.getElementById("sumTo");
+const sumTime     = document.getElementById("sumTime");
+const modeIcons   = document.getElementById("modeIcons");
+const swapBtn     = document.getElementById("swapBtn");
 
 // ── Quick-pick chips ──────────────────────────────────────────────
 document.querySelectorAll(".chip").forEach(chip => {
@@ -79,7 +75,7 @@ function clearError() {
 
 // ── Loading state ─────────────────────────────────────────────────
 function setLoading(on) {
-  findBtn.disabled = on;
+  findBtn.disabled    = on;
   btnText.textContent = on ? "Searching…" : "Find Best Route";
   btnSpinner.classList.toggle("hidden", !on);
 }
@@ -95,7 +91,7 @@ function modeColor(step) {
   if (step.mode === "metro") {
     return step.line === "Green" ? "#27AE60" : "#9B59B6";
   }
-  if (step.mode === "bus")  return "#2980B9";
+  if (step.mode === "bus") return "#2980B9";
   return "#7F8C8D";
 }
 
@@ -109,7 +105,7 @@ function renderRoute(data) {
   // Mode badges
   modeIcons.innerHTML = "";
   data.modes_used.forEach(mode => {
-    const m = MODE_META[mode] || { icon: "?", label: mode };
+    const m     = MODE_META[mode] || { icon: "?", label: mode };
     const badge = document.createElement("span");
     badge.className = "mode-badge";
     badge.style.background = mode === "metro" ? "#9B59B6"
@@ -120,13 +116,11 @@ function renderRoute(data) {
 
   // Steps
   stepsList.innerHTML = "";
-  data.steps.forEach((step, idx) => {
-    const li   = document.createElement("li");
+  data.steps.forEach(step => {
+    const li    = document.createElement("li");
     li.className = "step-item";
-
-    const m    = MODE_META[step.mode] || { icon: "?", label: step.mode };
+    const m     = MODE_META[step.mode] || { icon: "?", label: step.mode };
     const color = modeColor(step);
-
     li.innerHTML = `
       <div class="step-icon" style="background:${color}">${m.icon}</div>
       <div class="step-body">
@@ -139,31 +133,66 @@ function renderRoute(data) {
   results.classList.remove("hidden");
 
   // ── Map rendering ─────────────────────────────────────────────
-  clearMapLayers();
+  if (!map) return;
+  clearMapOverlays();
+
+  const bounds = new google.maps.LatLngBounds();
 
   // Draw polyline segments
   data.segments.forEach(seg => {
     if (!seg.coords || seg.coords.length < 2) return;
-    const latlngs = seg.coords.map(c => [c.lat, c.lon]);
-    const dashArray = seg.mode === "walk" ? "6 6" : null;
-    const weight    = seg.mode === "walk" ? 3 : 5;
-    const line = L.polyline(latlngs, {
-      color: seg.color,
-      weight,
-      opacity: seg.mode === "walk" ? 0.7 : 0.9,
-      dashArray,
-    }).addTo(map);
-    mapLayers.push(line);
+    const path = seg.coords.map(c => ({ lat: c.lat, lng: c.lon }));
+    path.forEach(p => bounds.extend(p));
+
+    const isWalk = seg.mode === "walk";
+    const polyline = new google.maps.Polyline({
+      path,
+      geodesic: true,
+      strokeColor:   seg.color,
+      strokeOpacity: isWalk ? 0 : 0.9,
+      strokeWeight:  isWalk ? 3 : 5,
+      icons: isWalk ? [{
+        icon: { path: "M 0,-1 0,1", strokeOpacity: 1, scale: 4,
+                strokeColor: seg.color },
+        offset: "0",
+        repeat: "16px",
+      }] : [],
+      map,
+    });
+    mapOverlays.push(polyline);
   });
 
-  // Start & end markers
-  const sm = L.marker([data.start.lat, data.start.lon], { icon: startIcon })
-              .bindPopup(`<b>Start:</b> ${data.start_name}`).addTo(map);
-  const em = L.marker([data.end.lat,   data.end.lon],   { icon: endIcon })
-              .bindPopup(`<b>End:</b> ${data.end_name}`).addTo(map);
-  mapLayers.push(sm, em);
+  // Start marker
+  const startPos = { lat: data.start.lat, lng: data.start.lon };
+  bounds.extend(startPos);
+  const startMarker = new google.maps.Marker({
+    position: startPos,
+    map,
+    icon:  makeMarkerIcon("#27AE60", "A"),
+    title: data.start_name,
+  });
+  const startInfo = new google.maps.InfoWindow({
+    content: `<b>Start:</b> ${data.start_name}`,
+  });
+  startMarker.addListener("click", () => startInfo.open(map, startMarker));
+  mapOverlays.push(startMarker);
 
-  // Station markers along route
+  // End marker
+  const endPos = { lat: data.end.lat, lng: data.end.lon };
+  bounds.extend(endPos);
+  const endMarker = new google.maps.Marker({
+    position: endPos,
+    map,
+    icon:  makeMarkerIcon("#E53E3E", "B"),
+    title: data.end_name,
+  });
+  const endInfo = new google.maps.InfoWindow({
+    content: `<b>End:</b> ${data.end_name}`,
+  });
+  endMarker.addListener("click", () => endInfo.open(map, endMarker));
+  mapOverlays.push(endMarker);
+
+  // Station dots along route
   const visited = new Set();
   data.segments.forEach(seg => {
     if (seg.mode === "walk") return;
@@ -171,24 +200,27 @@ function renderRoute(data) {
       const key = `${c.lat},${c.lon}`;
       if (visited.has(key)) return;
       visited.add(key);
-      const m = L.circleMarker([c.lat, c.lon], {
-        radius: 5, color: "#fff", weight: 2,
-        fillColor: seg.color, fillOpacity: 1,
-      }).addTo(map);
-      mapLayers.push(m);
+      const circle = new google.maps.Circle({
+        center:       { lat: c.lat, lng: c.lon },
+        radius:       50,
+        strokeColor:  "#fff",
+        strokeWeight: 2,
+        fillColor:    seg.color,
+        fillOpacity:  1,
+        map,
+      });
+      mapOverlays.push(circle);
     });
   });
 
   // Fit map to route
-  const allCoords = data.segments.flatMap(s => (s.coords || []).map(c => [c.lat, c.lon]));
-  allCoords.push([data.start.lat, data.start.lon], [data.end.lat, data.end.lon]);
-  if (allCoords.length) {
-    map.fitBounds(L.latLngBounds(allCoords), { padding: [40, 40] });
+  if (!bounds.isEmpty()) {
+    map.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
   }
 }
 
 // ── Form submit ───────────────────────────────────────────────────
-form.addEventListener("submit", async (e) => {
+form.addEventListener("submit", async e => {
   e.preventDefault();
   const start = startInput.value.trim();
   const end   = endInput.value.trim();
@@ -226,20 +258,34 @@ form.addEventListener("submit", async (e) => {
 });
 
 // ── Load metro stations on map startup ───────────────────────────
-fetch("/api/stations")
-  .then(r => r.json())
-  .then(stations => {
-    stations.forEach(st => {
-      const color = st.lines.includes("purple") && st.lines.includes("green")
-                  ? "#E67E22"      // interchange = orange
-                  : st.lines.includes("purple") ? "#9B59B6" : "#27AE60";
-      L.circleMarker([st.lat, st.lon], {
-        radius: 4, color, weight: 1,
-        fillColor: color, fillOpacity: 0.7,
-        className: "station-dot",
-      })
-        .bindPopup(`<b>${st.name}</b><br>${st.lines.map(l => l.charAt(0).toUpperCase() + l.slice(1)).join(" / ")} Line`)
-        .addTo(map);
-    });
-  })
-  .catch(() => {});
+function loadMetroStations() {
+  fetch("/api/stations")
+    .then(r => r.json())
+    .then(stations => {
+      stations.forEach(st => {
+        const color = st.lines.includes("purple") && st.lines.includes("green")
+                    ? "#E67E22"
+                    : st.lines.includes("purple") ? "#9B59B6" : "#27AE60";
+
+        const circle = new google.maps.Circle({
+          center:       { lat: st.lat, lng: st.lon },
+          radius:       80,
+          strokeColor:  "#fff",
+          strokeWeight: 1,
+          fillColor:    color,
+          fillOpacity:  0.7,
+          map,
+        });
+
+        const lineNames = st.lines
+          .map(l => l.charAt(0).toUpperCase() + l.slice(1))
+          .join(" / ");
+        const infoWindow = new google.maps.InfoWindow({
+          content:  `<b>${st.name}</b><br>${lineNames} Line`,
+          position: { lat: st.lat, lng: st.lon },
+        });
+        circle.addListener("click", () => infoWindow.open(map));
+      });
+    })
+    .catch(() => {});
+}

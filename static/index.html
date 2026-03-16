@@ -5,10 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Bangalore Route Finder</title>
 
-  <!-- Leaflet -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
@@ -91,5 +87,8 @@
 <main id="map"></main>
 
 <script src="/static/app.js"></script>
+<script
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD7_J75gJCIRuTwLpi9qRjlHYkpilbKkdw&callback=initMap"
+  async defer></script>
 </body>
 </html>
